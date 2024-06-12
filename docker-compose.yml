@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+
+  whisper-gpu:
+    build:
+      dockerfile: ./docker/Dockerfile.gpu
+      context: '.'
+    ports:
+      - '9090:9090'
+    volumes:
+      - hugging-face-cache:/root/.cache/huggingface
+  whisper-cpu:
+    build:
+      dockerfile: ./docker/Dockerfile.cpu
+      context: '.'
+    ports:
+      - '9091:9090'
+    volumes:
+      - hugging-face-cache:/root/.cache/huggingface
+
+volumes:
+  hugging-face-cache: # stores whisper models
