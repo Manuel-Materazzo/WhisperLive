@@ -3,7 +3,7 @@ import shutil
 import wave
 
 import numpy as np
-import pyaudio
+import pyaudiowpatch as pyaudio
 import threading
 import json
 import websocket
@@ -11,6 +11,7 @@ import uuid
 import time
 import ffmpeg
 import whisper_live.utils as utils
+from whisper_live.device_type_enum import DeviceType
 
 
 class Client:
@@ -21,14 +22,14 @@ class Client:
     END_OF_AUDIO = "END_OF_AUDIO"
 
     def __init__(
-        self,
-        host=None,
-        port=None,
-        lang=None,
-        translate=False,
-        model="small",
-        srt_file_path="output.srt",
-        use_vad=True
+            self,
+            host=None,
+            port=None,
+            lang=None,
+            translate=False,
+            model="small",
+            srt_file_path="output.srt",
+            use_vad=True
     ):
         """
         Initializes a Client instance for audio recording and streaming to a server.
@@ -110,7 +111,7 @@ class Client:
                     self.last_segment = seg
                 elif (self.server_backend == "faster_whisper" and
                       (not self.transcript or
-                        float(seg['start']) >= float(self.transcript[-1]['end']))):
+                       float(seg['start']) >= float(self.transcript[-1]['end']))):
                     self.transcript.append(seg)
         # update last received segment and last valid response time
         if self.last_received_segment is None or self.last_received_segment != segments[-1]["text"]:
@@ -274,30 +275,23 @@ class TranscriptionTeeClient:
     Attributes:
         clients (list): the underlying Client instances responsible for handling WebSocket connections.
     """
-    def __init__(self, clients, save_output_recording=False, output_recording_filename="./output_recording.wav"):
+
+    def __init__(self, clients, save_output_recording=False, output_recording_filename="./output_recording.wav",
+                 device_type=DeviceType.INPUT):
         self.clients = clients
         if not self.clients:
             raise Exception("At least one client is required.")
-        self.chunk = 4096
         self.format = pyaudio.paInt16
+        self.record_seconds = 60000
+        self.chunk = 4096
         self.channels = 1
         self.rate = 16000
-        self.record_seconds = 60000
+        self.stream = None
+        self.device_type = device_type
         self.save_output_recording = save_output_recording
         self.output_recording_filename = output_recording_filename
         self.frames = b""
         self.p = pyaudio.PyAudio()
-        try:
-            self.stream = self.p.open(
-                format=self.format,
-                channels=self.channels,
-                rate=self.rate,
-                input=True,
-                frames_per_buffer=self.chunk,
-            )
-        except OSError as error:
-            print(f"[WARN]: Unable to access microphone. {error}")
-            self.stream = None
 
     def __call__(self, audio=None, rtsp_url=None, hls_url=None, save_file=None):
         """
@@ -321,6 +315,7 @@ class TranscriptionTeeClient:
                 if client.waiting or client.server_error:
                     self.close_all_clients()
                     return
+                time.sleep(0.1)
 
         print("[INFO]: Server Ready!")
         if hls_url is not None:
@@ -513,6 +508,39 @@ class TranscriptionTeeClient:
             self.write_output_recording(n_audio_file)
         self.write_all_clients_srt()
 
+    def get_loopback_default_device(self):
+        """
+        Interrogates pyaudio (with patch) to get a default loopback device from WASAPI.
+        :return:
+        """
+        try:
+            # Get default WASAPI info
+            wasapi_info = self.p.get_host_api_info_by_type(pyaudio.paWASAPI)
+        except OSError:
+            print("Looks like WASAPI is not available on the system. Exiting...")
+            exit()
+
+        # Get default WASAPI speakers
+        default_speakers = self.p.get_device_info_by_index(wasapi_info["defaultOutputDevice"])
+
+        if not default_speakers["isLoopbackDevice"]:
+            for loopback in self.p.get_loopback_device_info_generator():
+                """
+                    Try to find loopback device with same name(and [Loopback suffix]).
+                    Unfortunately, this is the most adequate way at the moment.
+                    """
+                if default_speakers["name"] in loopback["name"]:
+                    default_speakers = loopback
+                    break
+            else:
+                print(
+                    "Default loopback output device not found.",
+                    "\n\nRun `python -m pyaudiowpatch` to check available devices.",
+                    "\nExiting...\n"
+                )
+                exit()
+        return default_speakers
+
     def record(self):
         """
         Record audio data from the input stream and save it to a WAV file.
@@ -526,6 +554,32 @@ class TranscriptionTeeClient:
         The recording process can be interrupted by sending a KeyboardInterrupt (e.g., pressing Ctrl+C). After recording,
         the method combines all the saved audio chunks into the specified `out_file`.
         """
+        try:
+            speaker_index = None
+
+            if self.device_type == DeviceType.OUTPUT:
+                # Get default WASAPI speakers
+                default_speakers = self.get_loopback_default_device()
+                speaker_index = default_speakers["index"]
+
+                # update global channels and rate
+                self.channels = default_speakers["maxInputChannels"]
+                self.rate = int(default_speakers["defaultSampleRate"])
+
+                print(f"Recording from: ({default_speakers['index']}) {default_speakers['name']}")
+
+            self.stream = self.p.open(
+                format=self.format,
+                channels=self.channels,
+                rate=self.rate,
+                input=True,
+                input_device_index=speaker_index,
+                frames_per_buffer=self.chunk
+            )
+
+        except OSError as error:
+            print(f"[WARN]: Unable to access audio device. {error}")
+
         n_audio_file = 0
         if self.save_output_recording:
             if os.path.exists("chunks"):
@@ -538,8 +592,13 @@ class TranscriptionTeeClient:
                 data = self.stream.read(self.chunk, exception_on_overflow=False)
                 self.frames += data
 
-                audio_array = self.bytes_to_float_array(data)
+                # mix-down to one channel and resample to 16k the audio
+                resampled_audio = utils.resample_stream(data, self.rate, 16000, self.channels)
 
+                # normalize for numpy
+                audio_array = self.bytes_to_float_array(resampled_audio)
+
+                # multicast ava audio_array
                 self.multicast_packet(audio_array.tobytes())
 
                 # save frames if more than a minute
@@ -654,26 +713,31 @@ class TranscriptionClient(TranscriptionTeeClient):
         transcription_client()
         ```
     """
+
     def __init__(
-        self,
-        host,
-        port,
-        lang=None,
-        translate=False,
-        model="small",
-        use_vad=True,
-        save_output_recording=False,
-        output_recording_filename="./output_recording.wav",
-        output_transcription_path="./output.srt"
+            self,
+            host,
+            port,
+            lang=None,
+            translate=False,
+            model="small",
+            use_vad=True,
+            device_type=DeviceType.INPUT,
+            save_output_recording=False,
+            output_recording_filename="./output_recording.wav",
+            output_transcription_path="./output.srt"
     ):
-        self.client = Client(host, port, lang, translate, model, srt_file_path=output_transcription_path, use_vad=use_vad)
+        self.client = Client(host, port, lang, translate, model, srt_file_path=output_transcription_path,
+                             use_vad=use_vad)
         if save_output_recording and not output_recording_filename.endswith(".wav"):
             raise ValueError(f"Please provide a valid `output_recording_filename`: {output_recording_filename}")
         if not output_transcription_path.endswith(".srt"):
-            raise ValueError(f"Please provide a valid `output_transcription_path`: {output_transcription_path}. The file extension should be `.srt`.")
+            raise ValueError(
+                f"Please provide a valid `output_transcription_path`: {output_transcription_path}. The file extension should be `.srt`.")
         TranscriptionTeeClient.__init__(
             self,
             [self.client],
             save_output_recording=save_output_recording,
-            output_recording_filename=output_recording_filename
+            output_recording_filename=output_recording_filename,
+            device_type=device_type
         )

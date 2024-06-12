@@ -1,6 +1,7 @@
 import os
 import textwrap
-import scipy
+import scipy.io.wavfile
+import scipy.signal
 import ffmpeg
 import numpy as np
 
@@ -69,3 +70,42 @@ def resample(file: str, sr: int = 16000):
     resampled_file = f"{file.split('.')[0]}_resampled.wav"
     scipy.io.wavfile.write(resampled_file, sr, np_buffer.astype(np.int16))
     return resampled_file
+
+
+def resample_stream(data, old_rate: int, new_rate: int = 16000, num_channels: int = 1):
+    """
+    Open an audio stream and read as mono waveform, resampling as necessary,
+    returns the resampled audio
+
+    Args:
+        data : The data of the audio stream
+        old_rate (int): The old sample rate
+        new_rate (int): The sample rate to resample the audio if necessary
+        num_channels (int): The number of channels in the audio data
+    Returns:
+        resampled_file: The resampled audio stream
+    """
+    try:
+        numpy_data = np.frombuffer(data, dtype=np.int16)
+
+        # Check if the data has more than 1 channel
+        if num_channels > 1:
+            # Reshape the data into a 2D array and take the mean of the channels to convert to mono
+            numpy_data = numpy_data.reshape(-1, num_channels)
+            mono_data = np.mean(numpy_data, axis=1)
+        else:
+            # If the data is already mono, no need to take the mean
+            mono_data = numpy_data
+
+        resample_ratio = new_rate / old_rate
+
+        # Ensure the new length is a multiple of 2
+        new_length = int(len(mono_data) * resample_ratio)
+        if new_length % 2 != 0:
+            new_length += 1
+
+        resampled_data = scipy.signal.resample(mono_data, new_length)
+        return resampled_data.astype(np.int16).tobytes()
+
+    except Exception as e:
+        raise RuntimeError(f"Failed to resample audio") from e

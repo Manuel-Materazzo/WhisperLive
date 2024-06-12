@@ -1,4 +1,4 @@
-PyAudio
+PyAudioWPatch
 ffmpeg-python
 scipy
 websocket-client
