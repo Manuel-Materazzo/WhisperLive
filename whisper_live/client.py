@@ -57,6 +57,7 @@ class Client:
         self.use_vad = use_vad
         self.last_segment = None
         self.last_received_segment = None
+        self.hallucinations = utils.get_hallucinations_list(lang)
 
         if translate:
             self.task = "translate"
@@ -105,6 +106,9 @@ class Client:
         """Processes transcript segments."""
         text = []
         for i, seg in enumerate(segments):
+            # hallucination filter
+            if seg["text"] in self.hallucinations:
+                continue
             if not text or text[-1] != seg["text"]:
                 text.append(seg["text"])
                 if i == len(segments) - 1:

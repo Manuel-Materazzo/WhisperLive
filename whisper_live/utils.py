@@ -3,6 +3,7 @@ import textwrap
 import scipy.io.wavfile
 import scipy.signal
 import ffmpeg
+import json
 import numpy as np
 
 
@@ -63,13 +64,23 @@ def resample(file: str, sr: int = 16000):
             .output("-", format="s16le", acodec="pcm_s16le", ac=1, ar=sr)
             .run(cmd=["ffmpeg", "-nostdin"], capture_stdout=True, capture_stderr=True)
         )
-    except ffmpeg.Error as e:
-        raise RuntimeError(f"Failed to load audio: {e.stderr.decode()}") from e
+    except Exception as e:
+        raise RuntimeError(f"Failed to load audio: {file}") from e
     np_buffer = np.frombuffer(out, dtype=np.int16)
 
     resampled_file = f"{file.split('.')[0]}_resampled.wav"
     scipy.io.wavfile.write(resampled_file, sr, np_buffer.astype(np.int16))
     return resampled_file
+
+
+def get_hallucinations_list(language_code):
+    """
+    Get a list of all hallucinations from the hallucinations.json located on the assets folder.
+    :return: a list of strings containing the hallucinations for the given language
+    """
+    with open('assets/hallucinations.json', encoding="utf8") as f:
+        d = json.load(f)
+        return d[language_code]
 
 
 def resample_stream(data, old_rate: int, new_rate: int = 16000, num_channels: int = 1):
