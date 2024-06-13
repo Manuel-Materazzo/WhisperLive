@@ -107,7 +107,7 @@ class Client:
         text = []
         for i, seg in enumerate(segments):
             # hallucination filter
-            if seg["text"] in self.hallucinations:
+            if seg["text"].strip() in self.hallucinations:
                 continue
             if not text or text[-1] != seg["text"]:
                 text.append(seg["text"])
