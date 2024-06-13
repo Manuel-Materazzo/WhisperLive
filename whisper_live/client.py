@@ -596,8 +596,10 @@ class TranscriptionTeeClient:
                 data = self.stream.read(self.chunk, exception_on_overflow=False)
                 self.frames += data
 
-                # mix-down to one channel and resample to 16k the audio
-                resampled_audio = utils.resample_stream(data, self.rate, 16000, self.channels)
+                # mix-down to one channel and resample to 16k if needed
+                resampled_audio = data
+                if self.channels != 1 or self.rate != 16000:
+                    resampled_audio = utils.resample_stream(data, self.rate, 16000, self.channels)
 
                 # normalize for numpy
                 audio_array = self.bytes_to_float_array(resampled_audio)
