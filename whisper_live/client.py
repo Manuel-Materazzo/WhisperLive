@@ -10,6 +10,7 @@ import websocket
 import uuid
 import time
 import ffmpeg
+import queue
 import whisper_live.utils as utils
 from whisper_live.device_type_enum import DeviceType
 
@@ -279,10 +280,12 @@ class TranscriptionTeeClient:
     Attributes:
         clients (list): the underlying Client instances responsible for handling WebSocket connections.
     """
+    _lock = threading.Lock()
 
     def __init__(self, clients, save_output_recording=False, output_recording_filename="./output_recording.wav",
-                 device_type=DeviceType.INPUT):
+                 device_type=DeviceType.INPUT, queue=None):
         self.clients = clients
+        self.q = queue
         if not self.clients:
             raise Exception("At least one client is required.")
         self.format = pyaudio.paInt16
@@ -295,7 +298,9 @@ class TranscriptionTeeClient:
         self.save_output_recording = save_output_recording
         self.output_recording_filename = output_recording_filename
         self.frames = b""
+        TranscriptionTeeClient._lock.acquire()
         self.p = pyaudio.PyAudio()
+        TranscriptionTeeClient._lock.release()
 
     def __call__(self, audio=None, rtsp_url=None, hls_url=None, save_file=None):
         """
@@ -593,6 +598,11 @@ class TranscriptionTeeClient:
             for _ in range(0, int(self.rate / self.chunk * self.record_seconds)):
                 if not any(client.recording for client in self.clients):
                     break
+
+                if not self.q.empty() and self.q.get_nowait() == 'STOP':
+                    print("Stopping recording thread...")
+                    break
+
                 data = self.stream.read(self.chunk, exception_on_overflow=False)
                 self.frames += data
 
@@ -733,6 +743,7 @@ class TranscriptionClient(TranscriptionTeeClient):
             output_recording_filename="./output_recording.wav",
             output_transcription_path="./output.srt"
     ):
+        q = queue.Queue()
         self.client = Client(host, port, lang, translate, model, srt_file_path=output_transcription_path,
                              use_vad=use_vad)
         if save_output_recording and not output_recording_filename.endswith(".wav"):
@@ -743,7 +754,11 @@ class TranscriptionClient(TranscriptionTeeClient):
         TranscriptionTeeClient.__init__(
             self,
             [self.client],
+            queue=q,
             save_output_recording=save_output_recording,
             output_recording_filename=output_recording_filename,
             device_type=device_type
         )
+
+    def stop(self):
+        self.q.put('STOP')
