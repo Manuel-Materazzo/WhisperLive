@@ -33,7 +33,6 @@ class ClientManager:
         self.start_times = {}
         self.max_clients = max_clients
         self.max_connection_time = max_connection_time
-        self.soft_connection_time_limit = int(max_connection_time * 0.75)
 
     def add_client(self, websocket, client):
         """
@@ -107,8 +106,7 @@ class ClientManager:
 
     def is_client_timeout(self, websocket):
         """
-        Checks if a client has exceeded the soft connection time limit, and issues a message. If the client hits the hard
-        maximum connection time cap disconnects them, issuing a warning.
+        Checks if a client has exceeded the maximum allowed connection time and disconnects them if so, issuing a warning.
 
         Args:
             websocket: The websocket associated with the client to check.
@@ -121,11 +119,6 @@ class ClientManager:
             self.clients[websocket].disconnect()
             logging.warning(f"Client with uid '{self.clients[websocket].client_uid}' disconnected due to overtime.")
             return True
-        if elapsed_time >= self.soft_connection_time_limit:
-            websocket.send(json.dumps({
-                "uid": self.clients[websocket].client_uid,
-                "message": "SOFT_CONNECTION_TIMEOUT_REACHED",
-            }))
         return False
 
 
