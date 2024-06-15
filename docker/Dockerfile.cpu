@@ -31,11 +31,7 @@ RUN apt-get update && apt-get install cloudflared
 
 COPY whisper_live /app/whisper_live
 COPY run_server.py /app
-COPY start-cloudflared.sh /app
-
-COPY whisper_live /app/whisper_live
-COPY run_server.py /app
-COPY start-cloudflared.sh /app
+COPY scripts/start-cloudflared.sh /app
 
 RUN chmod +x /app/start-cloudflared.sh
 
