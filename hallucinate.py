@@ -1,7 +1,5 @@
 import json
-import os
-import sys
-import pysrt
+import srt
 
 from whisper_live.client import TranscriptionClient
 
@@ -29,11 +27,11 @@ for lang in LANG_LIST:
         )
         hallucination_client("assets/empty.mp3")
 
-        # parse the srt file to extract hallucinations
-        subs = pysrt.open("output.srt", 'utf-8')
         subs_text = []
-        for sub in subs:
-            subs_text.append(sub.text)
+        # parse the srt file to extract hallucinations
+        with open('output.srt', encoding='utf-8') as f:
+            for sub in srt.parse(f):
+                subs_text.append(sub.content)
 
         HALLUCINATIONS[lang] = subs_text
         print(f"{lang}: {subs_text}")

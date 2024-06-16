@@ -2,3 +2,4 @@ PyAudioWPatch
 ffmpeg-python
 scipy
 websocket-client
+srt
