@@ -4,6 +4,7 @@ import scipy.io.wavfile
 import scipy.signal
 import ffmpeg
 import json
+import srt
 import numpy as np
 
 
@@ -41,6 +42,51 @@ def create_srt_file(segments, output_file):
             srt_file.write(f"{text}\n\n")
 
             segment_number += 1
+
+
+def merge_srt_files(srt_files, output_file, annotate_speaker=False):
+    """
+    Merges multiple SRT files into a single SRT file ordered by start time.
+    :param annotate_speaker: whether to add "filename: " at the start of the subtitle or not.
+    :param srt_files: list of srt files to merge.
+    :param output_file: merged srt file name
+    """
+    merged_subtitles = []
+    # extract all subtitles from files
+    for file in srt_files:
+        with open(file, encoding='utf-8') as srt_file:
+            subtitles = srt.parse(srt_file)
+            for subtitle in subtitles:
+                print(subtitle.start, subtitle.end)
+                if annotate_speaker:
+                    subtitle.content = file + ": " + subtitle.content
+                merged_subtitles.append(subtitle)
+
+    # sort by start time
+    merged_subtitles.sort(key=lambda x: x.start)
+
+    subtitle_string = srt.compose(merged_subtitles)
+    with open(output_file, 'w', encoding='utf-8') as srt_output_file:
+        srt_output_file.write(subtitle_string)
+
+
+def concatenate_srt_files(srt_files, output_file):
+    """
+    Concatenates multiple SRT files into a single SRT file ordered by index.
+    :param srt_files: list of srt files to concatenate
+    :param output_file: merged srt file name
+    """
+    concatenated_subtitles = []
+    for file in srt_files:
+        with open(file, encoding='utf-8') as srt_file:
+            subtitles = srt.parse(srt_file)
+            for subtitle in subtitles:
+                print(subtitle.start, subtitle.end)
+                concatenated_subtitles.append(subtitle)
+
+    subtitle_string = srt.compose(concatenated_subtitles)
+    with open(output_file, 'w', encoding='utf-8') as srt_output_file:
+        srt_output_file.write(subtitle_string)
 
 
 def resample(file: str, sr: int = 16000):
