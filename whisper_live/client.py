@@ -576,6 +576,8 @@ class TranscriptionTeeClient:
                 self.rate = int(default_speakers["defaultSampleRate"])
 
                 print(f"Recording from: ({default_speakers['index']}) {default_speakers['name']}")
+            else:
+                print("Recording from default microphone")
 
             self.stream = self.p.open(
                 format=self.format,
@@ -666,6 +668,7 @@ class TranscriptionTeeClient:
             for i in range(n_audio_file)
             if os.path.exists(f"chunks/{i}.wav")
         ]
+        os.makedirs(os.path.dirname(self.output_recording_filename), exist_ok=True)
         with wave.open(self.output_recording_filename, "wb") as wavfile:
             wavfile: wave.Wave_write
             wavfile.setnchannels(self.channels)

@@ -30,6 +30,7 @@ def format_time(s):
 
 
 def create_srt_file(segments, output_file):
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as srt_file:
         segment_number = 1
         for segment in segments:
@@ -66,6 +67,7 @@ def merge_srt_files(srt_files, output_file, annotate_speaker=False):
     merged_subtitles.sort(key=lambda x: x.start)
 
     subtitle_string = srt.compose(merged_subtitles)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as srt_output_file:
         srt_output_file.write(subtitle_string)
 
@@ -84,6 +86,7 @@ def concatenate_srt_files(srt_files, output_file):
                 concatenated_subtitles.append(subtitle)
 
     subtitle_string = srt.compose(concatenated_subtitles)
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as srt_output_file:
         srt_output_file.write(subtitle_string)
 
