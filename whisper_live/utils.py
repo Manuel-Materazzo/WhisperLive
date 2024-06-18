@@ -81,7 +81,6 @@ def concatenate_srt_files(srt_files, output_file):
         with open(file, encoding='utf-8') as srt_file:
             subtitles = srt.parse(srt_file)
             for subtitle in subtitles:
-                print(subtitle.start, subtitle.end)
                 concatenated_subtitles.append(subtitle)
 
     subtitle_string = srt.compose(concatenated_subtitles)
