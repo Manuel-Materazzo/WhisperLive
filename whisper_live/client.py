@@ -91,14 +91,15 @@ class Client:
         self.ws_thread.start()
 
         self.transcript = []
-        print("[{device_type}] [INFO]: * recording")
+        print(f"[{device_type}] [INFO]: * recording")
 
     def handle_status_messages(self, message_data):
         """Handles server status messages."""
         status = message_data["status"]
         if status == "WAIT":
             self.waiting = True
-            print(f"[{self.device_type}] [INFO]: Server is full. Estimated wait time {round(message_data['message'])} minutes.")
+            print(
+                f"[{self.device_type}] [INFO]: Server is full. Estimated wait time {round(message_data['message'])} minutes.")
         elif status == "ERROR":
             print(f"[{self.device_type}] Message from Server: {message_data['message']}")
             self.server_error = True
@@ -632,6 +633,21 @@ class TranscriptionTeeClient:
 
         except KeyboardInterrupt:
             self.finalize_recording(n_audio_file)
+        except AttributeError as err:
+            print(
+                f"[{self.device_type}] [ERROR] There was an error while extracting the audio stream. {err}"
+            )
+            self.finalize_recording(n_audio_file)
+        except OSError as err:
+            if err.errno == -9999:
+                print(
+                    f"[{self.device_type}] [ERROR] Can't read audio data from device."
+                    "If you are on windows, try to grant microphone permissions on"
+                    "settings > privacy & security > microphone"
+                )
+                self.finalize_recording(n_audio_file)
+            else:
+                raise
 
     def write_audio_frames_to_file(self, frames, file_name):
         """
@@ -753,7 +769,8 @@ class TranscriptionClient(TranscriptionTeeClient):
         self.client = Client(host, port, lang, translate, model, srt_file_path=output_transcription_path,
                              use_vad=use_vad)
         if save_output_recording and not output_recording_filename.endswith(".wav"):
-            raise ValueError(f"[{device_type}] Please provide a valid `output_recording_filename`: {output_recording_filename}")
+            raise ValueError(
+                f"[{device_type}] Please provide a valid `output_recording_filename`: {output_recording_filename}")
         if not output_transcription_path.endswith(".srt"):
             raise ValueError(
                 f"[{device_type}] Please provide a valid `output_transcription_path`: {output_transcription_path}. The file extension should be `.srt`.")

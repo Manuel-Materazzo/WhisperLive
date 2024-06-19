@@ -55,13 +55,16 @@ def merge_srt_files(srt_files, output_file, annotate_speaker=False):
     merged_subtitles = []
     # extract all subtitles from files
     for file in srt_files:
-        with open(file, encoding='utf-8') as srt_file:
-            subtitles = srt.parse(srt_file)
-            for subtitle in subtitles:
-                print(subtitle.start, subtitle.end)
-                if annotate_speaker:
-                    subtitle.content = file + ": " + subtitle.content
-                merged_subtitles.append(subtitle)
+        try:
+            with open(file, encoding='utf-8') as srt_file:
+                subtitles = srt.parse(srt_file)
+                for subtitle in subtitles:
+                    print(subtitle.start, subtitle.end)
+                    if annotate_speaker:
+                        subtitle.content = file + ": " + subtitle.content
+                    merged_subtitles.append(subtitle)
+        except FileNotFoundError:
+            print(f"File {file} not found, proceeding without merging.")
 
     # sort by start time
     merged_subtitles.sort(key=lambda x: x.start)
