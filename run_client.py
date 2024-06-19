@@ -1,5 +1,7 @@
+import shutil
 import sys
 import threading
+from datetime import datetime
 from time import sleep
 import configparser
 import os.path
@@ -36,13 +38,6 @@ def load_configs(filename):
     # load config
     config.read(filename)
 
-    # add defaults
-    # config['DEFAULT'] = {
-    #     'TranscribeMicrophone': 'True',
-    #     'TranscribePcAudio': 'True',
-    #     'SaveMicrophoneWavFile': 'False',
-    #     'SavePcAudioWavFile': 'False'
-    # }
     return config
 
 
@@ -64,6 +59,28 @@ def start_client(device_type, save_output_recording, output_transcription_path, 
     clients.append(client)
     # start client
     client()
+
+
+def clear_subfolders():
+    """
+    Zips the files created by a previous client run and clear the folders
+    :return:
+    """
+    # zip files
+    now = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+    shutil.make_archive(now, 'zip', 'srt-files')
+
+    # clear folders
+    folder = 'srt-files'
+    for filename in os.listdir(folder):
+        file_path = os.path.join(folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            print('Failed to delete %s. Reason: %s' % (file_path, e))
 
 
 def merge_and_concatenate(files):
@@ -96,6 +113,8 @@ def start_application(speaker_thread=None, microphone_thread=None):
     restart_counter += 1
     files = []
 
+    clear_subfolders()
+
     # if either thread is not active, start it
     if (config.getboolean('Client', 'TranscribePcAudio', fallback=True) and
             (not speaker_thread or not speaker_thread.is_alive())):
@@ -103,7 +122,8 @@ def start_application(speaker_thread=None, microphone_thread=None):
         wav_file_name = "./wav-files/pc-audio/audio" + str(restart_counter) + ".wav"
         speaker_thread = threading.Thread(
             target=start_client,
-            args=(DeviceType.OUTPUT, config.getboolean('Client', 'SavePcAudioWavFile', fallback=False), srt_file_name, wav_file_name)
+            args=(DeviceType.OUTPUT, config.getboolean('Client', 'SavePcAudioWavFile', fallback=False), srt_file_name,
+                  wav_file_name)
         )
         speaker_thread.start()
         files.append(srt_file_name)
@@ -113,7 +133,8 @@ def start_application(speaker_thread=None, microphone_thread=None):
         wav_file_name = "./srt-files/microphone/microphone" + str(restart_counter) + ".wav"
         microphone_thread = threading.Thread(
             target=start_client,
-            args=(DeviceType.INPUT, config.getboolean('Client', 'SaveMicrophoneWavFile', fallback=False), srt_file_name, wav_file_name)
+            args=(DeviceType.INPUT, config.getboolean('Client', 'SaveMicrophoneWavFile', fallback=False), srt_file_name,
+                  wav_file_name)
         )
         microphone_thread.start()
         files.append(srt_file_name)

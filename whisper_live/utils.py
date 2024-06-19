@@ -62,7 +62,6 @@ def merge_srt_files(srt_files, output_file, annotate_speaker=False):
             with open(file, encoding='utf-8') as srt_file:
                 subtitles = srt.parse(srt_file)
                 for subtitle in subtitles:
-                    print(subtitle.start, subtitle.end)
                     if annotate_speaker:
                         subtitle.content = file + ": " + subtitle.content
                     merged_subtitles.append(subtitle)
@@ -91,7 +90,7 @@ def concatenate_srt_files(srt_files, output_file):
             for subtitle in subtitles:
                 concatenated_subtitles.append(subtitle)
 
-    subtitle_string = srt.compose(concatenated_subtitles)
+    subtitle_string = srt.compose(concatenated_subtitles, reindex=False)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     with open(output_file, 'w', encoding='utf-8') as srt_output_file:
         srt_output_file.write(subtitle_string)
