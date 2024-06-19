@@ -129,7 +129,7 @@ class Client:
         # Truncate to last 3 entries for brevity.
         text = text[-3:]
         utils.clear_screen()
-        utils.print_transcript(text)
+        utils.print_transcript(text, speaker=self.device_type)
 
     def on_message(self, ws, message):
         """
