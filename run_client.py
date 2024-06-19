@@ -72,6 +72,7 @@ def clear_subfolders():
 
     # clear folders
     folder = 'srt-files'
+    os.makedirs(folder, exist_ok=True)
     for filename in os.listdir(folder):
         file_path = os.path.join(folder, filename)
         try:
