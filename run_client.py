@@ -51,11 +51,11 @@ def start_client(device_type, save_output_recording, output_transcription_path, 
     # instantiate client
     client = TranscriptionClient(
         config.get('Websocket', 'Host', fallback='localhost'),
-        int(config.get('Websocket', 'Port', fallback='9090')),
+        config.getint('Websocket', 'Port', fallback=9090),
         lang=config.get('Client', 'Language', fallback='en'),
-        translate=bool(config.get('Client', 'Translate', fallback='False')),
+        translate=config.getboolean('Client', 'Translate', fallback=False),
         model=config.get('Websocket', 'Model', fallback='small'),
-        use_vad=bool(config.get('Client', 'VoiceActivationDetection', fallback='True')),
+        use_vad=config.getboolean('Client', 'VoiceActivationDetection', fallback=True),
         device_type=device_type,
         save_output_recording=save_output_recording,
         output_transcription_path=output_transcription_path,
@@ -97,23 +97,23 @@ def start_application(speaker_thread=None, microphone_thread=None):
     files = []
 
     # if either thread is not active, start it
-    if (bool(config.get('Client', 'TranscribePcAudio', fallback='True')) and
+    if (config.getboolean('Client', 'TranscribePcAudio', fallback=True) and
             (not speaker_thread or not speaker_thread.is_alive())):
         srt_file_name = "./srt-files/pc-audio/audio" + str(restart_counter) + ".srt"
         wav_file_name = "./wav-files/pc-audio/audio" + str(restart_counter) + ".wav"
         speaker_thread = threading.Thread(
             target=start_client,
-            args=(DeviceType.OUTPUT, bool(config.get('Client', 'SavePcAudioWavFile', fallback='False')), srt_file_name, wav_file_name)
+            args=(DeviceType.OUTPUT, config.getboolean('Client', 'SavePcAudioWavFile', fallback=False), srt_file_name, wav_file_name)
         )
         speaker_thread.start()
         files.append(srt_file_name)
-    if (bool(config.get('Client', 'TranscribeMicrophone', fallback='True')) and
+    if (config.getboolean('Client', 'TranscribeMicrophone', fallback=True) and
             (not microphone_thread or not microphone_thread.is_alive())):
         srt_file_name = "./srt-files/microphone/microphone" + str(restart_counter) + ".srt"
         wav_file_name = "./srt-files/microphone/microphone" + str(restart_counter) + ".wav"
         microphone_thread = threading.Thread(
             target=start_client,
-            args=(DeviceType.INPUT, bool(config.get('Client', 'SaveMicrophoneWavFile', fallback='False')), srt_file_name, wav_file_name)
+            args=(DeviceType.INPUT, config.getboolean('Client', 'SaveMicrophoneWavFile', fallback=False), srt_file_name, wav_file_name)
         )
         microphone_thread.start()
         files.append(srt_file_name)
