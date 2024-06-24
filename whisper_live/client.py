@@ -402,18 +402,17 @@ class TranscriptionTeeClient:
                 for client in self.clients:
                     client.wait_before_disconnect()
                 self.multicast_packet(Client.END_OF_AUDIO.encode('utf-8'), True)
-                self.write_all_clients_srt()
-                self.stream.close()
-                self.close_all_clients()
 
             except KeyboardInterrupt:
+                print(f"[{self.device_type}] [INFO]: Keyboard interrupt.")
+            finally:
                 wavfile.close()
                 self.stream.stop_stream()
                 self.stream.close()
                 self.p.terminate()
                 self.close_all_clients()
                 self.write_all_clients_srt()
-                print(f"[{self.device_type}] [INFO]: Keyboard interrupt.")
+
 
     def process_rtsp_stream(self, rtsp_url):
         """
@@ -629,15 +628,13 @@ class TranscriptionTeeClient:
                         self.save_chunk(n_audio_file)
                         n_audio_file += 1
                     self.frames = b""
-            self.write_all_clients_srt()
 
         except KeyboardInterrupt:
-            self.finalize_recording(n_audio_file)
+            print(f"[{self.device_type}] [INFO]: Keyboard interrupt.")
         except AttributeError as err:
             print(
                 f"[{self.device_type}] [ERROR] There was an error while extracting the audio stream. {err}"
             )
-            self.finalize_recording(n_audio_file)
         except OSError as err:
             if err.errno == -9999:
                 print(
@@ -645,9 +642,10 @@ class TranscriptionTeeClient:
                     "If you are on windows, try to grant microphone permissions on"
                     "settings > privacy & security > microphone"
                 )
-                self.finalize_recording(n_audio_file)
             else:
                 raise
+        finally:
+            self.finalize_recording(n_audio_file)
 
     def write_audio_frames_to_file(self, frames, file_name):
         """

@@ -114,8 +114,6 @@ def start_application(speaker_thread=None, microphone_thread=None):
     restart_counter += 1
     files = []
 
-    clear_subfolders()
-
     # if either thread is not active, start it
     if (config.getboolean('Client', 'TranscribePcAudio', fallback=True) and
             (not speaker_thread or not speaker_thread.is_alive())):
@@ -155,6 +153,7 @@ def start_application(speaker_thread=None, microphone_thread=None):
         sleep(2)
         files_collection.append(files)
         merge_and_concatenate(files_collection)
+        clear_subfolders()
         sys.exit(0)
 
 
